@@ -2,10 +2,10 @@ name: ticket_scanner
 title: 'DL Ticket Scanner'
 description: "DriveLife Ticket Scanner App"
 publish_to: 'none'
-version: 0.1.1+2
+version: 1.8.2+2
 
 environment:
-  sdk: ^3.11.0
+  sdk: ^3.9.2
 
 dependencies:
   mobile_scanner: ^5.0.0

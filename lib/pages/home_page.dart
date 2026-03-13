@@ -56,7 +56,7 @@ class HomePage extends StatelessWidget {
                           ),
                           const SizedBox(width: 12),
                           const Text(
-                            'Ticket Scanner v0.1.1+2',
+                            'Ticket Scanner',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 18,
