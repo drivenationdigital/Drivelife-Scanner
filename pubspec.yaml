@@ -1,0 +1,33 @@
+name: ticket_scanner
+title: 'DL Ticket Scanner'
+description: "DriveLife Ticket Scanner App"
+publish_to: 'none'
+version: 0.1.1+2
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  mobile_scanner: ^5.0.0
+  shared_preferences: ^2.3.0
+  http: ^1.2.0
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/scan-icon.png"
+  remove_alpha_ios: true
+  # No adaptive_icon settings = square icon
+  adaptive_icon_background: "#1C1A17"   # match your dark bg color
+  adaptive_icon_foreground: "assets/scan-icon.png"
+
+flutter:
+  uses-material-design: true
