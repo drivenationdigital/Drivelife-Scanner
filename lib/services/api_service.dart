@@ -9,6 +9,8 @@ class ApiConfig {
 
   static String get loginUrl => '$baseUrl$namespace/login';
   static String get redeemOfferUrl => '$baseUrl$appNamespace/redeem-offer';
+  static String get logSpeedwellScoreUrl =>
+      '$baseUrl$appNamespace/log-speedwell-score';
 
   static String ticketUrl(String qr, {bool fallback = false}) =>
       '$baseUrl$namespace/ticket/$qr';
@@ -118,12 +120,26 @@ class OrderResult {
   final WooOrder? order;
   final String? errorMessage;
 
+  // Speedwell
+  final bool isSpeedwellChallenge;
+  final int? speedwellOfferId;
+  final int? speedwellUserId;
+  final String? speedwellOfferTitle;
+  final String? speedwellUserDisplayName;
+  final String? speedwellLocationName;
+
   const OrderResult.success(this.order)
     : valid = true,
       alreadyScanned = false,
       sessionExpired = false,
       isOfferRedemption = false,
       scannedAt = null,
+      isSpeedwellChallenge = false,
+      speedwellOfferId = null,
+      speedwellUserId = null,
+      speedwellOfferTitle = null,
+      speedwellUserDisplayName = null,
+      speedwellLocationName = null,
       errorMessage = null;
 
   const OrderResult.alreadyScanned(this.order, this.scannedAt)
@@ -131,6 +147,12 @@ class OrderResult {
       alreadyScanned = true,
       sessionExpired = false,
       isOfferRedemption = false,
+      isSpeedwellChallenge = false,
+      speedwellOfferId = null,
+      speedwellUserId = null,
+      speedwellOfferTitle = null,
+      speedwellUserDisplayName = null,
+      speedwellLocationName = null,
       errorMessage = null;
 
   const OrderResult.failure(this.errorMessage)
@@ -139,6 +161,12 @@ class OrderResult {
       sessionExpired = false,
       isOfferRedemption = false,
       scannedAt = null,
+      isSpeedwellChallenge = false,
+      speedwellOfferId = null,
+      speedwellUserId = null,
+      speedwellOfferTitle = null,
+      speedwellUserDisplayName = null,
+      speedwellLocationName = null,
       order = null;
 
   const OrderResult.expired()
@@ -148,6 +176,12 @@ class OrderResult {
       isOfferRedemption = false,
       scannedAt = null,
       order = null,
+      isSpeedwellChallenge = false,
+      speedwellOfferId = null,
+      speedwellUserId = null,
+      speedwellOfferTitle = null,
+      speedwellUserDisplayName = null,
+      speedwellLocationName = null,
       errorMessage = 'Session expired.';
 
   // ↓ New constructors for offer redemption flow
@@ -158,6 +192,12 @@ class OrderResult {
       isOfferRedemption = true,
       scannedAt = null,
       order = null,
+      isSpeedwellChallenge = false,
+      speedwellOfferId = null,
+      speedwellUserId = null,
+      speedwellOfferTitle = null,
+      speedwellUserDisplayName = null,
+      speedwellLocationName = null,
       errorMessage = null;
 
   const OrderResult.offerAlreadyRedeemed(this.scannedAt)
@@ -166,7 +206,33 @@ class OrderResult {
       sessionExpired = false,
       isOfferRedemption = true,
       order = null,
+      isSpeedwellChallenge = false,
+      speedwellOfferId = null,
+      speedwellUserId = null,
+      speedwellOfferTitle = null,
+      speedwellUserDisplayName = null,
+      speedwellLocationName = null,
       errorMessage = null;
+
+  const OrderResult.speedwellChallenge({
+    required int offerId,
+    required int userId,
+    required String offerTitle,
+    required String userDisplayName,
+    required String locationName,
+  }) : valid = true,
+       alreadyScanned = false,
+       sessionExpired = false,
+       isOfferRedemption = false,
+       scannedAt = null,
+       order = null,
+       isSpeedwellChallenge = true,
+       speedwellOfferId = offerId,
+       speedwellUserId = userId,
+       speedwellOfferTitle = offerTitle,
+       speedwellUserDisplayName = userDisplayName,
+       speedwellLocationName = locationName,
+       errorMessage = null;
 }
 
 class ApiService {
@@ -257,7 +323,6 @@ class ApiService {
 
     // Primary lookup failed — try the offer redemption endpoint as fallback
     final offerResult = await _redeemOffer(rawQr);
-    print('Offer redemption result: $offerResult'); // Debug log
     if (offerResult != null) return offerResult;
 
     return result ??
@@ -266,6 +331,9 @@ class ApiService {
         );
   }
 
+  // ── Updated _redeemOffer ────────────────────────────────────────────────────
+  // Now returns OrderResult.speedwellChallenge() instead of null when the
+  // scanned QR belongs to a speedwell offer.
   Future<OrderResult?> _redeemOffer(String rawQr) async {
     late http.Response response;
 
@@ -289,7 +357,6 @@ class ApiService {
     late Map<String, dynamic> data;
     try {
       data = jsonDecode(response.body) as Map<String, dynamic>;
-      print('Redeem offer response: $data'); // Debug log
     } catch (_) {
       return null;
     }
@@ -297,6 +364,17 @@ class ApiService {
     final success = data['success'] as bool? ?? false;
 
     if (success) {
+      // ── Speedwell challenge — don't redeem, show score entry ──────────────
+      if (data['is_speedwell'] == true) {
+        return OrderResult.speedwellChallenge(
+          offerId: data['offer_id'] as int,
+          userId: data['user_id'] as int,
+          offerTitle: data['offer_title'] as String? ?? '',
+          userDisplayName: data['user_display_name'] as String? ?? '',
+          locationName: data['location_name'] as String? ?? '',
+        );
+      }
+
       return const OrderResult.offerRedeemed();
     }
 
@@ -307,6 +385,42 @@ class ApiService {
     }
 
     return null;
+  }
+
+  // ── New: logSpeedwellScore ─────────────────────────────────────────────────
+
+  Future<bool> logSpeedwellScore({
+    required int offerId,
+    required int userId,
+    required double score,
+    required String location,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(ApiConfig.logSpeedwellScoreUrl), // add to ApiConfig
+            headers: _headers,
+            body: jsonEncode({
+              'offer_id': offerId,
+              'user_id': userId,
+              'score': score,
+              'location': location,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 401) {
+        await logout();
+        return false;
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      print(data);
+      return data['success'] == true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<OrderResult?> _fetchTicket(

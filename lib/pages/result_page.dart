@@ -35,6 +35,7 @@ class _ResultPageState extends State<ResultPage>
 
     final raw = widget.scanData['raw'] as String? ?? '';
     _orderFuture = _api.lookupTicket(raw);
+    print('Looking up ticket with raw data: $raw'); // Debug log
   }
 
   @override
@@ -92,6 +93,18 @@ class _ResultPageState extends State<ResultPage>
                     );
                   }
                   return _OfferRedeemedView(onDone: _done);
+                }
+
+                if (result.isSpeedwellChallenge) {
+                  return _SpeedwellScoreEntryView(
+                    offerId: result.speedwellOfferId!,
+                    userId: result.speedwellUserId!,
+                    offerTitle: result.speedwellOfferTitle ?? '',
+                    userDisplayName: result.speedwellUserDisplayName ?? '',
+                    locationName: result.speedwellLocationName ?? '',
+                    api: _api,
+                    onDone: _done,
+                  );
                 }
 
                 // ── Ticket results ─────────────────────────────
@@ -606,6 +619,454 @@ class _OfferAlreadyRedeemedView extends StatelessWidget {
       label: 'Already Redeemed',
       sublabel: detail,
       onDone: onDone,
+    );
+  }
+}
+
+// ── _SpeedwellScoreEntryView ───────────────────────────────────────────────
+class _SpeedwellScoreEntryView extends StatefulWidget {
+  final int offerId;
+  final int userId;
+  final String offerTitle;
+  final String userDisplayName;
+  final ApiService api;
+  final VoidCallback onDone;
+  final String locationName;
+
+  const _SpeedwellScoreEntryView({
+    required this.offerId,
+    required this.userId,
+    required this.offerTitle,
+    required this.userDisplayName,
+    required this.api,
+    required this.onDone,
+    required this.locationName,
+  });
+
+  @override
+  State<_SpeedwellScoreEntryView> createState() =>
+      _SpeedwellScoreEntryViewState();
+}
+
+class _SpeedwellScoreEntryViewState extends State<_SpeedwellScoreEntryView> {
+  final _scoreController = TextEditingController();
+  final _locationController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+
+  bool _submitting = false;
+  String? _submitError;
+
+  // Pre-fill in initState
+  @override
+  void initState() {
+    super.initState();
+    if (widget.locationName.isNotEmpty) {
+      _locationController.text = widget.locationName;
+    }
+  }
+
+  @override
+  void dispose() {
+    _scoreController.dispose();
+    _locationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _submitting = true;
+      _submitError = null;
+    });
+
+    final success = await widget.api.logSpeedwellScore(
+      offerId: widget.offerId,
+      userId: widget.userId,
+      score: double.parse(_scoreController.text.trim()),
+      location: _locationController.text.trim(),
+    );
+
+    if (!mounted) return;
+
+    if (success) {
+      // Replace this view with the success screen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => _SpeedwellSuccessScreen(
+            userDisplayName: widget.userDisplayName,
+            score: double.parse(_scoreController.text.trim()),
+            onDone: widget.onDone,
+          ),
+        ),
+      );
+    } else {
+      setState(() {
+        _submitting = false;
+        _submitError = 'Failed to log score. Please try again.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        28,
+        32,
+        28,
+        MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFD700).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.speed_rounded,
+                    color: Color(0xFFFFD700),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Speedwall Challenge',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Text(
+                        widget.offerTitle,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.5),
+                          fontSize: 13,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 28),
+
+            // Player info
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.person_outline_rounded,
+                    color: Colors.white54,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    widget.userDisplayName,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            _label('Score'),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _scoreController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
+              decoration: _inputDecoration(hint: 'e.g. 450'),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Enter a score';
+                final n = double.tryParse(v.trim());
+                if (n == null || n <= 0) return 'Must be a positive number';
+                return null;
+              },
+            ),
+
+            const SizedBox(height: 20),
+
+            _label('Location'),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.04),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withOpacity(0.08)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.location_on_outlined,
+                    color: Colors.white.withOpacity(0.35),
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    _locationController.text.isNotEmpty
+                        ? _locationController.text
+                        : 'No location set',
+                    style: TextStyle(
+                      color: _locationController.text.isNotEmpty
+                          ? Colors.white.withOpacity(0.6)
+                          : Colors.white.withOpacity(0.25),
+                      fontSize: 15,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            if (_submitError != null) ...[
+              const SizedBox(height: 14),
+              Text(
+                _submitError!,
+                style: const TextStyle(color: Color(0xFFFF6B6B), fontSize: 13),
+              ),
+            ],
+
+            const SizedBox(height: 32), // ← was Spacer()
+
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _submitting ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFD700),
+                  foregroundColor: Colors.black,
+                  disabledBackgroundColor: const Color(
+                    0xFFFFD700,
+                  ).withOpacity(0.4),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 0,
+                ),
+                child: _submitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.black,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text(
+                        'Log Score',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: widget.onDone,
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.4),
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _label(String text) => Text(
+    text,
+    style: TextStyle(
+      color: Colors.white.withOpacity(0.55),
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.8,
+    ),
+  );
+
+  InputDecoration _inputDecoration({required String hint}) => InputDecoration(
+    hintText: hint,
+    hintStyle: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 16),
+    filled: true,
+    fillColor: Colors.white.withOpacity(0.06),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: Color(0xFFFFD700), width: 1.5),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: Color(0xFFFF6B6B)),
+    ),
+    focusedErrorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: Color(0xFFFF6B6B), width: 1.5),
+    ),
+    errorStyle: const TextStyle(color: Color(0xFFFF6B6B)),
+  );
+}
+
+// ── _SpeedwellSuccessScreen ────────────────────────────────────────────────
+
+class _SpeedwellSuccessScreen extends StatelessWidget {
+  final String userDisplayName;
+  final double score;
+  final VoidCallback onDone;
+
+  const _SpeedwellSuccessScreen({
+    required this.userDisplayName,
+    required this.score,
+    required this.onDone,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F1A),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Trophy icon
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFD700).withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.emoji_events_rounded,
+                  color: Color(0xFFFFD700),
+                  size: 52,
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
+              const Text(
+                'Score Logged!',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              Text(
+                userDisplayName,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.55),
+                  fontSize: 16,
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Score badge
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 16,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFD700).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFFFFD700).withOpacity(0.3),
+                  ),
+                ),
+                child: Text(
+                  '$score Av. Hit Time',
+                  style: const TextStyle(
+                    color: Color(0xFFFFD700),
+                    fontSize: 36,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+
+              SizedBox(height: 32),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white.withOpacity(0.08),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Done',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
