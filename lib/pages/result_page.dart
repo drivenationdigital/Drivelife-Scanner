@@ -501,6 +501,16 @@ class _TicketCard extends StatelessWidget {
                     .toList(),
               ),
             ),
+
+             // scan count
+          Padding(
+            padding: const EdgeInsets.only(left: 16, bottom: 14),
+            child: Column(
+              children: [
+                _MetaRow(label: 'Scan Count', value: '${item.scan_count}'),
+              ],
+            ),
+          ),
         ],
       ),
     );

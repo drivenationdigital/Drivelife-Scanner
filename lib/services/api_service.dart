@@ -60,6 +60,7 @@ class WooLineItem {
   final String? price;
   final Map<String, String> meta;
   final bool scanned; // true = this is the ticket that was just scanned
+  final int scan_count;
 
   const WooLineItem({
     required this.name,
@@ -67,6 +68,7 @@ class WooLineItem {
     this.price,
     required this.meta,
     this.scanned = false,
+    this.scan_count = 0,
   });
 
   factory WooLineItem.fromJson(Map<String, dynamic> json) {
@@ -81,6 +83,7 @@ class WooLineItem {
       price: json['price'] as String?,
       meta: meta,
       scanned: json['scanned'] as bool? ?? false,
+      scan_count: json['scan_count'] as int,
     );
   }
 }
