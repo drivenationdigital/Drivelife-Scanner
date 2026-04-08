@@ -503,14 +503,51 @@ class _TicketCard extends StatelessWidget {
             ),
 
              // scan count
-          Padding(
-            padding: const EdgeInsets.only(left: 16, bottom: 14),
-            child: Column(
-              children: [
-                _MetaRow(label: 'Scan Count', value: '${item.scan_count}'),
-              ],
+          // Padding(
+          //   padding: const EdgeInsets.only(left: 16, bottom: 14),
+          //   child: Column(
+          //     children: [
+          //       _MetaRow(label: 'Scan Count', value: '${item.scan_count}'),
+          //     ],
+          //   ),
+          // ),
+          if (item.scan_count > 1)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.orange.withOpacity(0.4),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      color: Colors.orange,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                            'This ticket has already been scanned.',
+                        style: const TextStyle(
+                          color: Colors.orange,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
         ],
       ),
     );
