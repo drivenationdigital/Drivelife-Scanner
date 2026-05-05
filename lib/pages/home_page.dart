@@ -3,6 +3,7 @@ import 'package:ticket_scanner/pages/login_page.dart';
 import 'package:ticket_scanner/pages/search_page.dart';
 import '../routes.dart';
 import '../services/api_service.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -39,29 +40,23 @@ class HomePage extends StatelessWidget {
                       Row(
                         children: [
                           Container(
-                            width: 38,
-                            height: 38,
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primary.withOpacity(
-                                0.15,
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              Icons.qr_code_scanner_rounded,
-                              color: theme.colorScheme.primary,
-                              size: 22,
+                            width: 150,
+                            height: 60,
+                            child: SvgPicture.asset(
+                              'assets/logo.svg',
+                              width: 40,
+                              height: 40,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          const Text(
-                            'Ticket Scanner',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          // const SizedBox(width: 12),
+                          // const Text(
+                          //   'Ticket Scanner',
+                          //   style: TextStyle(
+                          //     color: Colors.white,
+                          //     fontSize: 18,
+                          //     fontWeight: FontWeight.bold,
+                          //   ),
+                          // ),
                         ],
                       ),
                       // Logout

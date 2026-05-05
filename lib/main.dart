@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'routes.dart';
 import 'services/api_service.dart';
 import 'pages/home_page.dart';
@@ -6,6 +7,12 @@ import 'pages/login_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation
+        .portraitDown, // optional — remove if you don't want upside-down
+  ]);
+  
   final hasSession = await ApiService().tryRestoreSession();
   runApp(TicketScannerApp(hasSession: hasSession));
 }
