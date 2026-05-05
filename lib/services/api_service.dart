@@ -459,29 +459,32 @@ class ApiService {
     required int offerId,
     required int userId,
     required double score,
+    required int hits,      // ← new
+    required int misses,    // ← new
     required String location,
   }) async {
     try {
       final response = await http
           .post(
-            Uri.parse(ApiConfig.logSpeedwellScoreUrl), // add to ApiConfig
+            Uri.parse(ApiConfig.logSpeedwellScoreUrl),
             headers: _headers,
             body: jsonEncode({
               'offer_id': offerId,
-              'user_id': userId,
-              'score': score,
+              'user_id':  userId,
+              'score':    score,
+              'hits':     hits,     // ← new
+              'misses':   misses,   // ← new
               'location': location,
             }),
           )
           .timeout(const Duration(seconds: 15));
-
+  
       if (response.statusCode == 401) {
         await logout();
         return false;
       }
-
+  
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-
       print(data);
       return data['success'] == true;
     } catch (_) {

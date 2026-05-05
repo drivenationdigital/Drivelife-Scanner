@@ -677,7 +677,7 @@ class _OfferAlreadyRedeemedView extends StatelessWidget {
   }
 }
 
-// ── _SpeedwellScoreEntryView ───────────────────────────────────────────────
+
 class _SpeedwellScoreEntryView extends StatefulWidget {
   final int offerId;
   final int userId;
@@ -704,13 +704,14 @@ class _SpeedwellScoreEntryView extends StatefulWidget {
 
 class _SpeedwellScoreEntryViewState extends State<_SpeedwellScoreEntryView> {
   final _scoreController = TextEditingController();
+  final _hitsController = TextEditingController();
+  final _missesController = TextEditingController();
   final _locationController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   bool _submitting = false;
   String? _submitError;
 
-  // Pre-fill in initState
   @override
   void initState() {
     super.initState();
@@ -722,6 +723,8 @@ class _SpeedwellScoreEntryViewState extends State<_SpeedwellScoreEntryView> {
   @override
   void dispose() {
     _scoreController.dispose();
+    _hitsController.dispose();
+    _missesController.dispose();
     _locationController.dispose();
     super.dispose();
   }
@@ -734,23 +737,30 @@ class _SpeedwellScoreEntryViewState extends State<_SpeedwellScoreEntryView> {
       _submitError = null;
     });
 
+    final score = double.parse(_scoreController.text.trim());
+    final hits = int.parse(_hitsController.text.trim());
+    final misses = int.parse(_missesController.text.trim());
+
     final success = await widget.api.logSpeedwellScore(
       offerId: widget.offerId,
       userId: widget.userId,
-      score: double.parse(_scoreController.text.trim()),
+      score: score,
+      hits: hits,
+      misses: misses,
       location: _locationController.text.trim(),
     );
 
     if (!mounted) return;
 
     if (success) {
-      // Replace this view with the success screen
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => _SpeedwellSuccessScreen(
             userDisplayName: widget.userDisplayName,
-            score: double.parse(_scoreController.text.trim()),
+            score: score,
+            hits: hits,
+            misses: misses,
             onDone: widget.onDone,
           ),
         ),
@@ -850,7 +860,8 @@ class _SpeedwellScoreEntryViewState extends State<_SpeedwellScoreEntryView> {
 
             const SizedBox(height: 20),
 
-            _label('Score'),
+            // Score
+            _label('Avg. Hit Time'),
             const SizedBox(height: 8),
             TextFormField(
               controller: _scoreController,
@@ -862,7 +873,7 @@ class _SpeedwellScoreEntryViewState extends State<_SpeedwellScoreEntryView> {
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
               ),
-              decoration: _inputDecoration(hint: 'e.g. 450'),
+              decoration: _inputDecoration(hint: 'e.g. 1.42'),
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'Enter a score';
                 final n = double.tryParse(v.trim());
@@ -873,6 +884,57 @@ class _SpeedwellScoreEntryViewState extends State<_SpeedwellScoreEntryView> {
 
             const SizedBox(height: 20),
 
+            // Hits + Misses (side by side)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Hits'),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _hitsController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        decoration: _inputDecoration(hint: '0'),
+                        validator: _intValidator,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Misses'),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _missesController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        decoration: _inputDecoration(hint: '0'),
+                        validator: _intValidator,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
+            // Location (read-only)
             _label('Location'),
             const SizedBox(height: 8),
             Container(
@@ -914,7 +976,7 @@ class _SpeedwellScoreEntryViewState extends State<_SpeedwellScoreEntryView> {
               ),
             ],
 
-            const SizedBox(height: 32), // ← was Spacer()
+            const SizedBox(height: 32),
 
             SizedBox(
               width: double.infinity,
@@ -972,6 +1034,14 @@ class _SpeedwellScoreEntryViewState extends State<_SpeedwellScoreEntryView> {
     );
   }
 
+  String? _intValidator(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Required';
+    final n = int.tryParse(v.trim());
+    if (n == null) return 'Whole number';
+    if (n < 0) return 'Cannot be negative';
+    return null;
+  }
+
   Widget _label(String text) => Text(
     text,
     style: TextStyle(
@@ -1012,16 +1082,18 @@ class _SpeedwellScoreEntryViewState extends State<_SpeedwellScoreEntryView> {
   );
 }
 
-// ── _SpeedwellSuccessScreen ────────────────────────────────────────────────
-
 class _SpeedwellSuccessScreen extends StatelessWidget {
   final String userDisplayName;
   final double score;
+  final int hits;
+  final int misses;
   final VoidCallback onDone;
 
   const _SpeedwellSuccessScreen({
     required this.userDisplayName,
     required this.score,
+    required this.hits,
+    required this.misses,
     required this.onDone,
   });
 
@@ -1035,7 +1107,7 @@ class _SpeedwellSuccessScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Trophy icon
+              // Trophy
               Container(
                 width: 100,
                 height: 100,
@@ -1096,7 +1168,29 @@ class _SpeedwellSuccessScreen extends StatelessWidget {
                 ),
               ),
 
-              SizedBox(height: 32),
+              const SizedBox(height: 16),
+
+              // Hits / Misses summary
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _StatPill(
+                    icon: Icons.gps_fixed_rounded,
+                    label: 'Hits',
+                    value: '$hits',
+                    color: const Color(0xFF4CD964),
+                  ),
+                  const SizedBox(width: 12),
+                  _StatPill(
+                    icon: Icons.close_rounded,
+                    label: 'Misses',
+                    value: '$misses',
+                    color: const Color(0xFFFF6B6B),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 32),
 
               SizedBox(
                 width: double.infinity,
@@ -1120,6 +1214,56 @@ class _SpeedwellSuccessScreen extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _StatPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _StatPill({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 8),
+          Text(
+            value,
+            style: TextStyle(
+              color: color,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: color.withOpacity(0.75),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
