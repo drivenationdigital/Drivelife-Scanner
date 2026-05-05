@@ -33,9 +33,16 @@ class _ResultPageState extends State<ResultPage>
         );
     _slideController.forward();
 
-    final raw = widget.scanData['raw'] as String? ?? '';
-    _orderFuture = _api.lookupTicket(raw);
-    print('Looking up ticket with raw data: $raw'); // Debug log
+    final preloaded = widget.scanData['order'];
+    if (preloaded is WooOrder) {
+      // Came from search — order already loaded, no lookup needed
+      _orderFuture = Future.value(OrderResult.success(preloaded));
+    } else {
+      // Came from scanner — decrypt the QR via the API
+      final raw = widget.scanData['raw'] as String? ?? '';
+      _orderFuture = _api.lookupTicket(raw);
+      print('Looking up ticket with raw data: $raw');
+    }
   }
 
   @override

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:ticket_scanner/pages/search_page.dart';
 import '../routes.dart';
 import '../services/api_service.dart';
 import 'login_page.dart';
@@ -90,6 +91,20 @@ class _ScannerPageState extends State<ScannerPage>
     );
   }
 
+  Future<void> _openSearch() async {
+    // Pause the camera while the search page is open to save battery
+    await _cameraController.stop();
+    if (!mounted) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SearchPage()),
+    );
+
+    if (!mounted) return;
+    await _cameraController.start();
+  }
+
   void _goBack() => Navigator.pop(context);
 
   @override
@@ -137,6 +152,13 @@ class _ScannerPageState extends State<ScannerPage>
                       ],
                     ),
                   ),
+                  // Search
+                  _IconBtn(
+                    icon: Icons.search_rounded,
+                    onTap: _openSearch,
+                    tooltip: 'Search orders',
+                  ),
+                  const SizedBox(width: 8),
                   // Torch
                   _IconBtn(
                     icon: Icons.flashlight_on_rounded,

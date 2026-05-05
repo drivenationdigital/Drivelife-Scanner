@@ -14,6 +14,9 @@ class ApiConfig {
 
   static String ticketUrl(String qr, {bool fallback = false}) =>
       '$baseUrl$namespace/ticket/$qr';
+
+  static String searchOrdersUrl(String encodedQuery) =>
+      '$baseUrl/wp-json/ce-ts/v1/search-tickets?q=$encodedQuery';
 }
 
 class _Keys {
@@ -92,6 +95,7 @@ class WooOrder {
   final int id;
   final String status;
   final String customerName;
+  final String? email;
   final int scanCount;
   final List<WooLineItem> lineItems;
 
@@ -101,6 +105,7 @@ class WooOrder {
     required this.customerName,
     required this.scanCount,
     required this.lineItems,
+    this.email,
   });
 
   factory WooOrder.fromJson(Map<String, dynamic> json) => WooOrder(
@@ -108,6 +113,7 @@ class WooOrder {
     status: json['status'] as String? ?? '',
     customerName: json['customer_name'] as String? ?? '',
     scanCount: (json['scan_count'] as num?)?.toInt() ?? 1,
+    email: json['email'] as String?,
     lineItems: (json['line_items'] as List<dynamic>? ?? [])
         .map((e) => WooLineItem.fromJson(e as Map<String, dynamic>))
         .toList(),
@@ -390,6 +396,63 @@ class ApiService {
     return null;
   }
 
+  Future<SearchResult> searchOrders(String query) async {
+    if (_token == null) {
+      return const SearchResult.failure(
+        'Not authenticated. Please log in again.',
+      );
+    }
+
+    final trimmed = query.trim();
+    if (trimmed.length < 2) {
+      return const SearchResult.failure(
+        'Search must be at least 2 characters.',
+      );
+    }
+
+    late http.Response response;
+    try {
+      final encoded = Uri.encodeComponent(trimmed);
+      response = await http
+          .get(Uri.parse(ApiConfig.searchOrdersUrl(encoded)), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+    } catch (_) {
+      return const SearchResult.failure(
+        'Could not reach the server. Check your connection.',
+      );
+    }
+
+    if (response.statusCode == 401) {
+      await logout();
+      return const SearchResult.expired();
+    }
+
+    late Map<String, dynamic> data;
+    try {
+      data = jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      return const SearchResult.failure(
+        'Received an unreadable response from the server.',
+      );
+    }
+
+    if (response.statusCode != 200 || data['success'] != true) {
+      final error =
+          data['reason'] as String? ??
+          data['error'] as String? ??
+          'Search failed.';
+      return SearchResult.failure(error);
+    }
+
+    final ordersJson = data['orders'] as List<dynamic>? ?? const [];
+    final orders = ordersJson
+        .whereType<Map<String, dynamic>>()
+        .map(WooOrder.fromJson)
+        .toList(growable: false);
+
+    return SearchResult.success(orders);
+  }
+
   // ── New: logSpeedwellScore ─────────────────────────────────────────────────
 
   Future<bool> logSpeedwellScore({
@@ -510,4 +573,37 @@ class ApiService {
       );
     }
   }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// PASTE INTO api_service.dart
+// ─────────────────────────────────────────────────────────────────
+//
+// 1. Add the SearchResult class below near WooOrder / OrderResult.
+// 2. Replace the placeholder `searchOrders` method inside ApiService
+//    with the implementation further down.
+// 3. Add `searchOrdersUrl(...)` to your ApiConfig (example at bottom).
+
+// ── 1. New model: SearchResult ───────────────────────────────────
+// Mirrors the OrderResult pattern but for a list of orders.
+class SearchResult {
+  final List<WooOrder> orders;
+  final bool sessionExpired;
+  final String? errorMessage;
+
+  const SearchResult.success(this.orders)
+    : sessionExpired = false,
+      errorMessage = null;
+
+  const SearchResult.expired()
+    : orders = const [],
+      sessionExpired = true,
+      errorMessage = 'Session expired.';
+
+  const SearchResult.failure(this.errorMessage)
+    : orders = const [],
+      sessionExpired = false;
+
+  bool get isSuccess => errorMessage == null && !sessionExpired;
+  bool get isFailure => errorMessage != null;
 }
