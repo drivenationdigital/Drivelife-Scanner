@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:ticket_scanner/pages/login_page.dart';
+import 'package:ticket_scanner/pages/search_page.dart';
 import '../routes.dart';
 import '../services/api_service.dart';
 
@@ -18,7 +19,6 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = ApiService().currentUser;
     final theme = Theme.of(context);
 
     return PopScope(
@@ -36,7 +36,6 @@ class HomePage extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // App icon + title
                       Row(
                         children: [
                           Container(
@@ -101,16 +100,9 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
 
-                const Spacer(),
+                const SizedBox(height: 32),
 
-                // ── Greeting ─────────────────────────────────────
-                if (user != null) ...[
-                  Text(
-                    'Hello, ${user.displayName.split(' ').first} 👋',
-                    style: const TextStyle(color: Colors.white54, fontSize: 16),
-                  ),
-                  const SizedBox(height: 6),
-                ],
+                // ── Heading ─────────────────────────────────────
                 const Text(
                   'Ready to\nscan tickets?',
                   style: TextStyle(
@@ -121,27 +113,56 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(height: 48),
+                const SizedBox(height: 32),
 
-                // ── Big scan button ───────────────────────────────
-                _ScanButton(
+                // ── Scan ────────────────────────────────────────
+                _ActionButton(
+                  icon: Icons.qr_code_scanner_rounded,
+                  label: 'Scan Now',
                   onTap: () => Navigator.pushNamed(context, AppRoutes.scanner),
                 ),
 
                 const SizedBox(height: 20),
 
-                // ── Hint text ─────────────────────────────────────
-                const Text(
-                  'Point your camera at the QR code on any ticket to verify entry.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white38,
-                    fontSize: 13,
-                    height: 1.5,
+                // ── Search ──────────────────────────────────────
+                _ActionButton(
+                  icon: Icons.search_rounded,
+                  label: 'Search',
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SearchPage()),
                   ),
                 ),
 
-                const Spacer(flex: 2),
+                const Spacer(),
+
+                // ── Support footer ──────────────────────────────
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 16),
+                  child: Column(
+                    children: [
+                      Text(
+                        'For all support queries, please phone',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 13,
+                          height: 1.5,
+                        ),
+                      ),
+                      Text(
+                        '(+44) 0800 488 0720',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -151,15 +172,27 @@ class HomePage extends StatelessWidget {
   }
 }
 
-class _ScanButton extends StatefulWidget {
+// ─────────────────────────────────────────────────────────────────
+// Reusable big gold action button (was _ScanButton)
+// ─────────────────────────────────────────────────────────────────
+class _ActionButton extends StatefulWidget {
+  final IconData icon;
+  final String label;
   final VoidCallback onTap;
-  const _ScanButton({required this.onTap});
+  final double height;
+
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.height = 160,
+  });
 
   @override
-  State<_ScanButton> createState() => _ScanButtonState();
+  State<_ActionButton> createState() => _ActionButtonState();
 }
 
-class _ScanButtonState extends State<_ScanButton>
+class _ActionButtonState extends State<_ActionButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scale;
@@ -200,7 +233,7 @@ class _ScanButtonState extends State<_ScanButton>
         onTapUp: _onTapUp,
         onTapCancel: _onTapCancel,
         child: Container(
-          height: 180,
+          height: widget.height,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [Color(0xFFAE9159), Color.fromARGB(255, 179, 164, 134)],
@@ -216,18 +249,14 @@ class _ScanButtonState extends State<_ScanButton>
               ),
             ],
           ),
-          child: const Column(
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.qr_code_scanner_rounded,
-                color: Colors.white,
-                size: 56,
-              ),
-              SizedBox(height: 14),
+              Icon(widget.icon, color: Colors.white, size: 52),
+              const SizedBox(height: 12),
               Text(
-                'Scan Now',
-                style: TextStyle(
+                widget.label,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,

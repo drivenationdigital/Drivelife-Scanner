@@ -27,8 +27,13 @@ class _ResultPageState extends State<ResultPage>
       vsync: this,
       duration: const Duration(milliseconds: 420),
     );
-    _slideAnimation = Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
-        .animate(
+    final cameFromSearch = widget.scanData['order'] is WooOrder;
+
+    _slideAnimation =
+        Tween<Offset>(
+          begin: cameFromSearch ? Offset.zero : const Offset(0, 1),
+          end: Offset.zero,
+        ).animate(
           CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
         );
     _slideController.forward();
